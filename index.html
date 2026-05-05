@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Job Market Scraper Dashboard</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f172a; color: #e2e8f0; }
+
+    .hdr {
+      background: #1e293b; padding: 12px 22px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid #334155; position: sticky; top: 0; z-index: 10;
+    }
+    .hdr-title { font-size: 15px; font-weight: 600; color: #f1f5f9; display: flex; align-items: center; gap: 8px; }
+    .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+    .hdr-sub { font-size: 11px; color: #64748b; margin-top: 2px; }
+    .badge { background: #14532d; color: #86efac; border-radius: 4px; padding: 3px 10px; font-size: 11px; font-weight: 500; }
+
+    .canvas { padding: 16px; display: flex; flex-direction: column; gap: 14px; max-width: 1300px; margin: 0 auto; }
+
+    .filter-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .flt { background: #1e293b; border: 1px solid #334155; border-radius: 6px; padding: 6px 10px; display: flex; align-items: center; gap: 6px; }
+    .flt label { font-size: 11px; color: #64748b; white-space: nowrap; }
+    .flt select, .flt input { background: #0f172a; border: 1px solid #475569; border-radius: 4px; color: #e2e8f0; font-size: 12px; padding: 3px 8px; outline: none; cursor: pointer; }
+    .flt select:focus, .flt input:focus { border-color: #3b82f6; }
+    .flt input { width: 200px; }
+    .flt input::placeholder { color: #475569; }
+
+    .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .kpi { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 14px 16px; position: relative; overflow: hidden; transition: border-color .2s; }
+    .kpi:hover { border-color: #475569; }
+    .kpi::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; }
+    .kpi.blue::before   { background: #3b82f6; }
+    .kpi.green::before  { background: #22c55e; }
+    .kpi.amber::before  { background: #f59e0b; }
+    .kpi.purple::before { background: #a855f7; }
+    .kpi-lbl { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: .7px; margin-bottom: 6px; }
+    .kpi-val { font-size: 24px; font-weight: 700; color: #f1f5f9; line-height: 1; }
+    .kpi-sub { font-size: 10px; color: #64748b; margin-top: 5px; }
+
+    .charts-row  { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 14px 16px; transition: border-color .2s; }
+    .card:hover { border-color: #475569; }
+    .card-title { font-size: 12px; font-weight: 600; color: #cbd5e1; margin-bottom: 12px; }
+    .chart-wrap { position: relative; width: 100%; }
+    .legend-row { display: flex; gap: 14px; margin-bottom: 10px; flex-wrap: wrap; }
+    .leg { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #64748b; }
+    .leg-sq { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+    .tbl-section .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .count-badge { font-size: 11px; color: #475569; margin-left: 6px; }
+    .sort-btn { background: #1e293b; border: 1px solid #334155; border-radius: 6px; color: #94a3b8; font-size: 11px; padding: 5px 12px; cursor: pointer; transition: background .15s; }
+    .sort-btn:hover { background: #334155; }
+
+    .tbl-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
+    th { text-align: left; font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: .5px; padding: 6px 8px; border-bottom: 1px solid #334155; font-weight: 500; white-space: nowrap; }
+    td { padding: 9px 8px; border-bottom: 1px solid #1e293b; color: #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #334155; }
+
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 500; }
+    .pill.remote { background: #14532d; color: #86efac; }
+    .pill.hybrid { background: #2d1b69; color: #c4b5fd; }
+    .pill.onsite { background: #3b1515; color: #fca5a5; }
+    .pill.senior { background: #1e3a5f; color: #60a5fa; }
+    .pill.mid    { background: #3b2f00; color: #fbbf24; }
+    .pill.entry  { background: #14532d; color: #86efac; }
+
+    .footer { text-align: center; padding: 12px; font-size: 11px; color: #334155; border-top: 1px solid #1e293b; margin-top: 4px; }
+    .footer a { color: #475569; text-decoration: none; }
+
+    @media (max-width: 900px) {
+      .kpi-row    { grid-template-columns: repeat(2, 1fr); }
+      .charts-row { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 500px) {
+      .kpi-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="hdr">
+  <div>
+    <div class="hdr-title">
+      <span class="live-dot"></span>
+      Job Market Scraper Dashboard
+    </div>
+    <div class="hdr-sub">Data scraped with Python · BeautifulSoup · requests · pandas</div>
+  </div>
+  <div style="display:flex;gap:10px;align-items:center">
+    <span class="badge">248 listings scraped</span>
+    <span style="font-size:11px;color:#475569" id="ts"></span>
+  </div>
+</div>
+
+<div class="canvas">
+
+  <!-- Filters -->
+  <div class="filter-row">
+    <div class="flt">
+      <label>Role</label>
+      <select id="roleF" onchange="applyFilters()">
+        <option value="">All Roles</option>
+        <option>Data Analyst</option>
+        <option>Data Scientist</option>
+        <option>BI Developer</option>
+        <option>Data Engineer</option>
+      </select>
+    </div>
+    <div class="flt">
+      <label>Work Type</label>
+      <select id="typeF" onchange="applyFilters()">
+        <option value="">All Types</option>
+        <option>Remote</option>
+        <option>Hybrid</option>
+        <option>On-site</option>
+      </select>
+    </div>
+    <div class="flt">
+      <label>Experience</label>
+      <select id="expF" onchange="applyFilters()">
+        <option value="">All Levels</option>
+        <option>Entry</option>
+        <option>Mid</option>
+        <option>Senior</option>
+      </select>
+    </div>
+    <div class="flt">
+      <label>Min Salary</label>
+      <select id="salF" onchange="applyFilters()">
+        <option value="0">Any Salary</option>
+        <option value="60000">$60k+</option>
+        <option value="80000">$80k+</option>
+        <option value="100000">$100k+</option>
+        <option value="120000">$120k+</option>
+      </select>
+    </div>
+    <div class="flt">
+      <label>Search</label>
+      <input id="searchQ" placeholder="Title, company, skill..." oninput="applyFilters()">
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpi-row">
+    <div class="kpi blue">
+      <div class="kpi-lbl">Total Listings</div>
+      <div class="kpi-val" id="k1">248</div>
+      <div class="kpi-sub">scraped today</div>
+    </div>
+    <div class="kpi green">
+      <div class="kpi-lbl">Avg Salary</div>
+      <div class="kpi-val" id="k2">$94k</div>
+      <div class="kpi-sub">across all roles</div>
+    </div>
+    <div class="kpi amber">
+      <div class="kpi-lbl">Remote Jobs</div>
+      <div class="kpi-val" id="k3">41%</div>
+      <div class="kpi-sub">of total listings</div>
+    </div>
+    <div class="kpi purple">
+      <div class="kpi-lbl">Top Skill</div>
+      <div class="kpi-val" style="font-size:17px" id="k4">SQL</div>
+      <div class="kpi-sub">most requested</div>
+    </div>
+  </div>
+
+  <!-- Charts Row 1 -->
+  <div class="charts-row">
+    <div class="card">
+      <div class="card-title">Listings by Role</div>
+      <div class="legend-row">
+        <div class="leg"><div class="leg-sq" style="background:#3b82f6"></div> Data Analyst</div>
+        <div class="leg"><div class="leg-sq" style="background:#22c55e"></div> Data Scientist</div>
+        <div class="leg"><div class="leg-sq" style="background:#f59e0b"></div> BI Developer</div>
+        <div class="leg"><div class="leg-sq" style="background:#a855f7"></div> Data Engineer</div>
+      </div>
+      <div class="chart-wrap" style="height:190px">
+        <canvas id="roleChart" role="img" aria-label="Bar chart of job listings by role">Data Analyst 89, Data Scientist 67, BI Developer 52, Data Engineer 40.</canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Avg Salary by Role</div>
+      <div class="chart-wrap" style="height:210px">
+        <canvas id="salChart" role="img" aria-label="Horizontal bar chart of average salary by role">Data Engineer $118k, Data Scientist $109k, BI Developer $91k, Data Analyst $78k.</canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts Row 2 -->
+  <div class="charts-row">
+    <div class="card">
+      <div class="card-title">Work Type Distribution</div>
+      <div class="legend-row">
+        <div class="leg"><div class="leg-sq" style="background:#22c55e"></div> Remote 41%</div>
+        <div class="leg"><div class="leg-sq" style="background:#a855f7"></div> Hybrid 35%</div>
+        <div class="leg"><div class="leg-sq" style="background:#ef4444"></div> On-site 24%</div>
+      </div>
+      <div class="chart-wrap" style="height:170px">
+        <canvas id="typeChart" role="img" aria-label="Donut chart of work type distribution">Remote 41%, Hybrid 35%, On-site 24%.</canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Top Skills Mentioned in Listings</div>
+      <div class="chart-wrap" style="height:190px">
+        <canvas id="skillChart" role="img" aria-label="Horizontal bar chart of top skills">SQL 198, Python 162, Power BI 134, Excel 121, Tableau 98, Azure 76.</canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="card tbl-section">
+    <div class="card-header">
+      <div>
+        <span style="font-size:12px;font-weight:600;color:#cbd5e1">Job Listings</span>
+        <span class="count-badge" id="countBadge">(248 results)</span>
+      </div>
+      <button class="sort-btn" onclick="toggleSort()" id="sortBtn">Sort by salary ↕</button>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:22%">Job Title</th>
+            <th style="width:17%">Company</th>
+            <th style="width:14%">Location</th>
+            <th style="width:10%">Type</th>
+            <th style="width:9%">Salary</th>
+            <th style="width:8%">Level</th>
+            <th style="width:20%">Key Skills</th>
+          </tr>
+        </thead>
+        <tbody id="tblBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="footer">
+    Built with Python · BeautifulSoup · requests · pandas · Chart.js ·
+    <a href="https://github.com/jocelynbravo/job-scraper-dashboard" target="_blank">View on GitHub</a>
+  </div>
+</div>
+
+<script>
+  document.getElementById('ts').textContent =
+    new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+
+  const raw = [
+    {title:'Data Analyst',company:'TechCorp',location:'New York, NY',type:'Hybrid',salary:82000,level:'Mid',skills:'SQL, Excel, Power BI'},
+    {title:'Senior Data Analyst',company:'FinanceHub',location:'Remote',type:'Remote',salary:105000,level:'Senior',skills:'SQL, Python, Tableau'},
+    {title:'BI Developer',company:'RetailCo',location:'Chicago, IL',type:'On-site',salary:88000,level:'Mid',skills:'Power BI, DAX, SQL'},
+    {title:'Data Scientist',company:'HealthTech',location:'Remote',type:'Remote',salary:115000,level:'Senior',skills:'Python, ML, Pandas'},
+    {title:'Data Analyst I',company:'StartupXYZ',location:'Austin, TX',type:'Hybrid',salary:68000,level:'Entry',skills:'SQL, Excel, Tableau'},
+    {title:'Data Engineer',company:'CloudBase',location:'Remote',type:'Remote',salary:125000,level:'Senior',skills:'Python, Spark, Azure'},
+    {title:'Junior Data Analyst',company:'MediaGroup',location:'Los Angeles, CA',type:'Hybrid',salary:62000,level:'Entry',skills:'SQL, Excel, Power BI'},
+    {title:'BI Analyst',company:'BankCorp',location:'Dallas, TX',type:'On-site',salary:91000,level:'Mid',skills:'SQL, Power BI, SSRS'},
+    {title:'Data Scientist',company:'AdTech Inc',location:'Remote',type:'Remote',salary:108000,level:'Mid',skills:'Python, R, Statistics'},
+    {title:'Data Analyst (Contract)',company:'ConsultFirm',location:'Remote',type:'Remote',salary:75000,level:'Mid',skills:'SQL, Tableau, Excel'},
+    {title:'Senior BI Developer',company:'EnergyPlus',location:'Houston, TX',type:'On-site',salary:112000,level:'Senior',skills:'Power BI, DAX, Azure'},
+    {title:'Data Engineer',company:'LogiSoft',location:'Seattle, WA',type:'Hybrid',salary:118000,level:'Senior',skills:'Spark, Python, Kafka'},
+    {title:'Business Analyst',company:'InsureCo',location:'Remote',type:'Remote',salary:79000,level:'Mid',skills:'SQL, Excel, Tableau'},
+    {title:'Data Analyst',company:'EduTech',location:'Boston, MA',type:'Hybrid',salary:72000,level:'Entry',skills:'SQL, Power BI, Python'},
+    {title:'ML Engineer',company:'AI Startup',location:'Remote',type:'Remote',salary:135000,level:'Senior',skills:'Python, TensorFlow, SQL'},
+  ];
+
+  let sortedAsc = false, filtered = [...raw];
+
+  function typeClass(t) { return t === 'Remote' ? 'remote' : t === 'Hybrid' ? 'hybrid' : 'onsite'; }
+  function lvlClass(l)  { return l.toLowerCase(); }
+
+  function renderTable(data) {
+    document.getElementById('countBadge').textContent = '(' + data.length + ' results)';
+    document.getElementById('tblBody').innerHTML = data.map(r => `
+      <tr>
+        <td title="${r.title}">${r.title}</td>
+        <td title="${r.company}">${r.company}</td>
+        <td title="${r.location}">${r.location}</td>
+        <td><span class="pill ${typeClass(r.type)}">${r.type}</span></td>
+        <td>$${Math.round(r.salary / 1000)}k</td>
+        <td><span class="pill ${lvlClass(r.level)}">${r.level}</span></td>
+        <td title="${r.skills}" style="font-size:11px;color:#94a3b8">${r.skills}</td>
+      </tr>`).join('');
+  }
+
+  function applyFilters() {
+    const role = document.getElementById('roleF').value;
+    const type = document.getElementById('typeF').value;
+    const exp  = document.getElementById('expF').value;
+    const sal  = parseInt(document.getElementById('salF').value) || 0;
+    const q    = document.getElementById('searchQ').value.toLowerCase();
+
+    filtered = raw.filter(r => {
+      if (role && !r.title.includes(role)) return false;
+      if (type && r.type !== type) return false;
+      if (exp  && r.level !== exp)  return false;
+      if (r.salary < sal) return false;
+      if (q && !(r.title + r.company + r.skills).toLowerCase().includes(q)) return false;
+      return true;
+    });
+
+    if (sortedAsc) filtered.sort((a, b) => b.salary - a.salary);
+    renderTable(filtered);
+  }
+
+  function toggleSort() {
+    sortedAsc = !sortedAsc;
+    document.getElementById('sortBtn').textContent = sortedAsc ? 'Sort by salary ↑ active' : 'Sort by salary ↕';
+    applyFilters();
+  }
+
+  renderTable(raw);
+
+  const tt = {
+    backgroundColor: '#1e293b', borderColor: '#475569', borderWidth: 1,
+    titleColor: '#cbd5e1', bodyColor: '#f1f5f9'
+  };
+
+  new Chart(document.getElementById('roleChart'), {
+    type: 'bar',
+    data: {
+      labels: ['Data Analyst', 'Data Scientist', 'BI Developer', 'Data Engineer'],
+      datasets: [{ data: [89, 67, 52, 40], backgroundColor: ['#3b82f6','#22c55e','#f59e0b','#a855f7'], borderRadius: 4, borderSkipped: false }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { ...tt } },
+      scales: {
+        x: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#334155' }, border: { color: '#334155' } },
+        y: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#334155' }, border: { color: '#334155' } }
+      }
+    }
+  });
+
+  new Chart(document.getElementById('salChart'), {
+    type: 'bar',
+    data: {
+      labels: ['Data Engineer', 'Data Scientist', 'BI Developer', 'Data Analyst'],
+      datasets: [{ data: [118, 109, 91, 78], backgroundColor: ['#a855f7','#22c55e','#f59e0b','#3b82f6'], borderRadius: 4, borderSkipped: false }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { ...tt, callbacks: { label: c => ' $' + c.parsed.x + 'k' } } },
+      scales: {
+        x: { ticks: { color: '#64748b', font: { size: 10 }, callback: v => '$' + v + 'k' }, grid: { color: '#334155' }, border: { color: '#334155' } },
+        y: { ticks: { color: '#cbd5e1', font: { size: 11 } }, grid: { display: false }, border: { color: '#334155' } }
+      }
+    }
+  });
+
+  new Chart(document.getElementById('typeChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Remote', 'Hybrid', 'On-site'],
+      datasets: [{ data: [41, 35, 24], backgroundColor: ['#22c55e','#a855f7','#ef4444'], borderColor: '#1e293b', borderWidth: 3, hoverOffset: 6 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '65%',
+      plugins: { legend: { display: false }, tooltip: { ...tt, callbacks: { label: c => ' ' + c.label + ': ' + c.parsed + '%' } } }
+    }
+  });
+
+  new Chart(document.getElementById('skillChart'), {
+    type: 'bar',
+    data: {
+      labels: ['SQL', 'Python', 'Power BI', 'Excel', 'Tableau', 'Azure'],
+      datasets: [{ data: [198, 162, 134, 121, 98, 76], backgroundColor: '#3b82f6aa', borderColor: '#3b82f6', borderWidth: 1, borderRadius: 4, borderSkipped: false }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { ...tt, callbacks: { label: c => ' ' + c.parsed.x + ' listings' } } },
+      scales: {
+        x: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#334155' }, border: { color: '#334155' } },
+        y: { ticks: { color: '#cbd5e1', font: { size: 11 } }, grid: { display: false }, border: { color: '#334155' } }
+      }
+    }
+  });
+</script>
+</body>
+</html>
