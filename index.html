@@ -107,28 +107,28 @@
       <label>Role</label>
       <select id="roleF" onchange="applyFilters()">
         <option value="">All Roles</option>
-        <option>Data Analyst</option>
-        <option>Data Scientist</option>
-        <option>BI Developer</option>
-        <option>Data Engineer</option>
+        <option value="analyst">Data Analyst</option>
+        <option value="scientist">Data Scientist</option>
+        <option value="bi">BI Developer</option>
+        <option value="engineer">Data Engineer</option>
       </select>
     </div>
     <div class="flt">
       <label>Work Type</label>
       <select id="typeF" onchange="applyFilters()">
         <option value="">All Types</option>
-        <option>Remote</option>
-        <option>Hybrid</option>
-        <option>On-site</option>
+        <option value="Remote">Remote</option>
+        <option value="Hybrid">Hybrid</option>
+        <option value="On-site">On-site</option>
       </select>
     </div>
     <div class="flt">
       <label>Experience</label>
       <select id="expF" onchange="applyFilters()">
         <option value="">All Levels</option>
-        <option>Entry</option>
-        <option>Mid</option>
-        <option>Senior</option>
+        <option value="Entry">Entry</option>
+        <option value="Mid">Mid</option>
+        <option value="Senior">Senior</option>
       </select>
     </div>
     <div class="flt">
@@ -289,18 +289,18 @@
   }
 
   function applyFilters() {
-    const role = document.getElementById('roleF').value;
+    const role = document.getElementById('roleF').value.toLowerCase();
     const type = document.getElementById('typeF').value;
     const exp  = document.getElementById('expF').value;
     const sal  = parseInt(document.getElementById('salF').value) || 0;
     const q    = document.getElementById('searchQ').value.toLowerCase();
 
     filtered = raw.filter(r => {
-      if (role && !r.title.includes(role)) return false;
+      if (role && !r.title.toLowerCase().includes(role)) return false;
       if (type && r.type !== type) return false;
       if (exp  && r.level !== exp)  return false;
       if (r.salary < sal) return false;
-      if (q && !(r.title + r.company + r.skills).toLowerCase().includes(q)) return false;
+      if (q && !(r.title + ' ' + r.company + ' ' + r.skills).toLowerCase().includes(q)) return false;
       return true;
     });
 
